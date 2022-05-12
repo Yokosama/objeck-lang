@@ -365,8 +365,9 @@ void MemoryManager::AddFreeCache(size_t chunk_size, size_t* raw_mem) {
   const size_t mem_size = raw_mem[0];
 
   unordered_map<size_t, stack<char*>*>::iterator result = free_memory_lists.find(mem_size);
-  if(result == free_memory_lists.end()) {
-
+  if(result != free_memory_lists.end()) {
+    stack<char*>* mem_pool_list = result->second;
+    mem_pool_list->push((char*)raw_mem);
   }
 
   /*
