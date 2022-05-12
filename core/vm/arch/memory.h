@@ -52,6 +52,8 @@ Start: GC tuning parameters
 #define SIZE_OR_CLS -2
 #define TYPE -3
 
+#define MEM_POOL_LIST_MAX 16
+
 /*
 End: GC tuning parameters
 */
@@ -90,7 +92,9 @@ class MemoryManager {
   static unordered_set<StackFrame**> pda_frames;
   static vector<StackFrame*> jit_frames; // deleted elsewhere
   static set<size_t*> allocated_memory;
-  static unordered_map<size_t, list<size_t*>*> free_memory_cache;
+
+  static unordered_map<size_t, stack<size_t*>*> free_memory_lists;
+  static unordered_map<size_t, size_t*> memory_lists;
   static size_t free_memory_cache_size;
   
   struct cantor_tuple {

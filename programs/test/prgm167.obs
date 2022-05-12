@@ -1,0 +1,9 @@
+class Test {
+	function : Main(args : String[]) ~ Nil {
+		a := "a";
+		a->PrintLine();
+
+		a := "b";
+		a->PrintLine();
+	}
+}
