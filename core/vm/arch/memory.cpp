@@ -41,7 +41,6 @@ set<size_t*> MemoryManager::allocated_memory;
 
 unordered_map<size_t, stack<char*>*> MemoryManager::free_memory_lists;
 unordered_map<size_t, char*> MemoryManager::memory_lists;
-size_t MemoryManager::free_memory_cache_size;
 
 unordered_map<cantor_tuple_key, StackMethod*, MemoryManager::cantor_tuple> MemoryManager::virtual_method_table;
 
@@ -83,7 +82,6 @@ void MemoryManager::Initialize(StackProgram* p)
   allocation_size = 0;
   mem_max_size = MEM_MAX;
   uncollected_count = 0;
-  free_memory_cache_size = 0;
 
 #ifdef _MEM_LOGGING
   mem_logger.open("mem_log.csv");
@@ -350,38 +348,29 @@ size_t* MemoryManager::GetMemory(size_t size) {
 }
 
 void MemoryManager::AddFreeMemory(size_t* raw_mem) {
+  /*
   if(free_memory_cache_size > mem_max_size) {
     ClearFreeMemory();
   }
+  */
   
   const size_t size = raw_mem[0];
-  AddFreeCache(GetAllocSize(size), raw_mem);
+  AddFreeCache(raw_mem);
 }
 
-void MemoryManager::AddFreeCache(size_t chunk_size, size_t* raw_mem) {
+void MemoryManager::AddFreeCache(size_t* mem_chunk) {
 #ifndef _GC_SERIAL
   MUTEX_LOCK(&free_memory_cache_lock);
 #endif
-  const size_t mem_size = raw_mem[0];
+  const size_t chunk_size = mem_chunk[0];
 
-  unordered_map<size_t, stack<char*>*>::iterator result = free_memory_lists.find(mem_size);
+  unordered_map<size_t, stack<char*>*>::iterator result = free_memory_lists.find(chunk_size);
   if(result != free_memory_lists.end()) {
     stack<char*>* mem_pool_list = result->second;
-    mem_pool_list->push((char*)raw_mem);
+    char* raw_mem_ptr = (char*)mem_chunk;
+    memset(raw_mem_ptr, 0, chunk_size);
+    mem_pool_list->push(raw_mem_ptr);
   }
-
-  /*
-  free_memory_cache_size += mem_size;
-  unordered_map<size_t, stack<size_t*>*>::iterator result = free_memory_lists.find(pool);
-  if(result == free_memory_lists.end()) {
-    stack<size_t*>* pool_list = new stack<size_t*>;
-    pool_list->push_front(raw_mem);
-    free_memory_lists.insert(pair<size_t, stack<size_t*>*>(pool, pool_list));
-  }
-  else {
-    result->second->push(raw_mem);
-  }
-  */
 #ifndef _GC_SERIAL
   MUTEX_UNLOCK(&free_memory_cache_lock);
 #endif
@@ -430,37 +419,6 @@ size_t* MemoryManager::GetFreeMemory(size_t ask_size) {
 
   raw_mem[0] = chunk_size;
   return raw_mem + 1;
-}
-
-void MemoryManager::ClearFreeMemory(bool all) {
-#ifndef _GC_SERIAL
-  MUTEX_LOCK(&free_memory_cache_lock);
-#endif
-  unordered_map<size_t, stack<char*>*>::iterator iter = free_memory_lists.begin();
-  for(; iter != free_memory_lists.end(); ++iter) {
-    stack<char*>* free_cache = iter->second;
-
-    while(!free_cache->empty()) {
-      char* raw_mem = free_cache->top();
-      free_cache->pop();
-
-      const size_t size = raw_mem[0];
-      free_memory_cache_size -= size;
-
-      free(raw_mem);
-      raw_mem = nullptr;
-    }
-
-    if(all) {
-      delete free_cache;
-      free_cache = nullptr;
-
-      free_memory_lists.clear();
-    }
-  }
-#ifndef _GC_SERIAL
-  MUTEX_UNLOCK(&free_memory_cache_lock);
-#endif
 }
 
 size_t MemoryManager::GetAllocSize(size_t size) {
@@ -774,9 +732,7 @@ void* MemoryManager::CollectMemory(void* arg)
 #endif
   set<size_t*> live_memory;
 
-  // for(size_t i = 0; i < allocated_memory.size(); ++i) {
   for (set<size_t*>::iterator iter = allocated_memory.begin(); iter != allocated_memory.end(); ++iter) {
-    // size_t* mem = allocated_memory[i];
     size_t* mem = *iter;
 
     // check dynamic memory

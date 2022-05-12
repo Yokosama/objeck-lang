@@ -95,7 +95,6 @@ class MemoryManager {
 
   static unordered_map<size_t, stack<char*>*> free_memory_lists;
   static unordered_map<size_t, char*> memory_lists;
-  static size_t free_memory_cache_size;
   
   struct cantor_tuple {
       template <class T1, class T2, class T3>
@@ -192,10 +191,9 @@ class MemoryManager {
   static size_t* GetMemory(size_t alloc_size);
   static void AddFreeMemory(size_t* raw_mem);
   static size_t GetAllocSize(size_t size);
-  void static inline AddFreeCache(size_t chunk_size, size_t* raw_mem);
+  void static inline AddFreeCache(size_t* raw_mem);
   static size_t* GetFreeMemory(size_t ask_size);
-  static void ClearFreeMemory(bool all = false);
-  
+    
  public:
   static void Initialize(StackProgram* p);
 
@@ -203,17 +201,14 @@ class MemoryManager {
 #ifdef _MEM_LOGGING
     mem_logger.close();
 #endif
-
-    ClearFreeMemory(true);
-
-    for(set<size_t*>::iterator iter = allocated_memory.begin(); iter != allocated_memory.end(); ++iter) {
-      size_t* mem = *iter;
-      mem -= EXTRA_BUF_SIZE + 1;
-      free(mem);
-      mem = nullptr;
+    
+    for(unordered_map<size_t, char*>::iterator iter = memory_lists.begin(); iter != memory_lists.end(); ++iter) {
+      char* pool_mem = iter->second;
+      free(pool_mem);
+      pool_mem = nullptr;
     }
     allocated_memory.clear();
-
+    
 #ifdef _WIN32
     DeleteCriticalSection(&jit_frame_lock);
     DeleteCriticalSection(&pda_monitor_lock);
