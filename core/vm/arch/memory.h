@@ -39,10 +39,10 @@ Start: GC tuning parameters
 */
 
 // FOR DEBUGGING ONLY
-// #define MEM_MAX 256 * 3
+#define MEM_MAX 256 * 3
 
 // FOR PRODUCTION
-#define MEM_MAX 4096 * 256 * 2
+// #define MEM_MAX 4096 * 256 * 2
 
 #define UNCOLLECTED_COUNT 11
 #define COLLECTED_COUNT 29
@@ -52,7 +52,7 @@ Start: GC tuning parameters
 #define SIZE_OR_CLS -2
 #define TYPE -3
 
-#define MEM_POOL_LIST_MAX 16
+#define MEM_POOL_LIST_MAX 512
 
 /*
 End: GC tuning parameters
@@ -93,8 +93,8 @@ class MemoryManager {
   static vector<StackFrame*> jit_frames; // deleted elsewhere
   static set<size_t*> allocated_memory;
 
-  static unordered_map<size_t, stack<size_t*>*> free_memory_lists;
-  static unordered_map<size_t, size_t*> memory_lists;
+  static unordered_map<size_t, stack<char*>*> free_memory_lists;
+  static unordered_map<size_t, char*> memory_lists;
   static size_t free_memory_cache_size;
   
   struct cantor_tuple {
@@ -192,8 +192,8 @@ class MemoryManager {
   static size_t* GetMemory(size_t alloc_size);
   static void AddFreeMemory(size_t* raw_mem);
   static size_t GetAllocSize(size_t size);
-  void static inline AddFreeCache(size_t pool, size_t* raw_mem);
-  static size_t* GetFreeMemory(size_t size);
+  void static inline AddFreeCache(size_t chunk_size, size_t* raw_mem);
+  static size_t* GetFreeMemory(size_t ask_size);
   static void ClearFreeMemory(bool all = false);
   
  public:

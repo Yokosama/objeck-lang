@@ -39,8 +39,8 @@ unordered_set<StackFrameMonitor*> MemoryManager::pda_monitors;
 vector<StackFrame*> MemoryManager::jit_frames;
 set<size_t*> MemoryManager::allocated_memory;
 
-unordered_map<size_t, stack<size_t*>*> MemoryManager::free_memory_lists;
-unordered_map<size_t, size_t*> MemoryManager::memory_lists;
+unordered_map<size_t, stack<char*>*> MemoryManager::free_memory_lists;
+unordered_map<size_t, char*> MemoryManager::memory_lists;
 size_t MemoryManager::free_memory_cache_size;
 
 unordered_map<cantor_tuple_key, StackMethod*, MemoryManager::cantor_tuple> MemoryManager::virtual_method_table;
@@ -358,14 +358,19 @@ void MemoryManager::AddFreeMemory(size_t* raw_mem) {
   AddFreeCache(GetAllocSize(size), raw_mem);
 }
 
-void MemoryManager::AddFreeCache(size_t pool, size_t* raw_mem) {
+void MemoryManager::AddFreeCache(size_t chunk_size, size_t* raw_mem) {
 #ifndef _GC_SERIAL
   MUTEX_LOCK(&free_memory_cache_lock);
 #endif
-  /*
   const size_t mem_size = raw_mem[0];
-  free_memory_cache_size += mem_size;
 
+  unordered_map<size_t, stack<char*>*>::iterator result = free_memory_lists.find(mem_size);
+  if(result == free_memory_lists.end()) {
+
+  }
+
+  /*
+  free_memory_cache_size += mem_size;
   unordered_map<size_t, stack<size_t*>*>::iterator result = free_memory_lists.find(pool);
   if(result == free_memory_lists.end()) {
     stack<size_t*>* pool_list = new stack<size_t*>;
@@ -388,15 +393,15 @@ size_t* MemoryManager::GetFreeMemory(size_t ask_size) {
   MUTEX_LOCK(&free_memory_cache_lock);
 #endif
 
-  stack<size_t*>* mem_pool_list = nullptr;
-  unordered_map<size_t, stack<size_t*>*>::iterator result = free_memory_lists.find(chunk_size);
+  stack<char*>* mem_pool_list = nullptr;
+  unordered_map<size_t, stack<char*>*>::iterator result = free_memory_lists.find(chunk_size);
   if(result == free_memory_lists.end()) {
     // create memory pool
-    size_t* pool_mem = (size_t*)calloc(mem_pool_list_max, sizeof(size_t));
-    size_t* head_ptr = pool_mem;
+    char* pool_mem = (char*)calloc(MEM_POOL_LIST_MAX, chunk_size);
+    char* head_ptr = pool_mem;
 
-    mem_pool_list = new stack<size_t*>;
-    for(size_t i = 0; i < mem_pool_list_max; ++i) {
+    mem_pool_list = new stack<char*>;
+    for(size_t i = 0; i < MEM_POOL_LIST_MAX; ++i) {
       mem_pool_list->push(head_ptr);
       head_ptr += chunk_size;
     }
@@ -407,27 +412,22 @@ size_t* MemoryManager::GetFreeMemory(size_t ask_size) {
 #ifdef _DEBUG_GC
     wcout << L"*** Raw pool allocation: address=" << pool_mem << L" ***" << endl;
 #endif
-
-#ifndef _GC_SERIAL
-    MUTEX_UNLOCK(&free_memory_cache_lock);
-#endif
-    
-    
   }
   else {
     mem_pool_list = result->second;
   }
 
   // get memory chunk
-  size_t alloc_size = ask_size + sizeof(size_t);
-  size_t* raw_mem = mem_pool_list->top();
+  size_t* raw_mem = (size_t*)mem_pool_list->top();
   mem_pool_list->pop();
+
+  // TODO: error checking empty list?
 
 #ifndef _GC_SERIAL
   MUTEX_UNLOCK(&free_memory_cache_lock);
 #endif
 
-  raw_mem[0] = ask_size;
+  raw_mem[0] = chunk_size;
   return raw_mem + 1;
 }
 
@@ -435,12 +435,12 @@ void MemoryManager::ClearFreeMemory(bool all) {
 #ifndef _GC_SERIAL
   MUTEX_LOCK(&free_memory_cache_lock);
 #endif
-  unordered_map<size_t, stack<size_t*>*>::iterator iter = free_memory_lists.begin();
+  unordered_map<size_t, stack<char*>*>::iterator iter = free_memory_lists.begin();
   for(; iter != free_memory_lists.end(); ++iter) {
-    stack<size_t*>* free_cache = iter->second;
+    stack<char*>* free_cache = iter->second;
 
     while(!free_cache->empty()) {
-      size_t* raw_mem = free_cache->top();
+      char* raw_mem = free_cache->top();
       free_cache->pop();
 
       const size_t size = raw_mem[0];

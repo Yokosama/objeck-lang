@@ -1,9 +1,11 @@
 class Test {
 	function : Main(args : String[]) ~ Nil {
-		a := "a";
-		a->PrintLine();
+		each(i : 256) {
+			a := "abc";
+			a->PrintLine();
 
-		a := "b";
-		a->PrintLine();
+			a := "def";
+			a->PrintLine();
+		};
 	}
 }
