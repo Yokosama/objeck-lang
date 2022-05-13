@@ -52,7 +52,7 @@ Start: GC tuning parameters
 #define SIZE_OR_CLS -2
 #define TYPE -3
 
-#define MEM_POOL_LIST_MAX 512
+#define MEM_POOL_LIST_MAX 2048
 
 /*
 End: GC tuning parameters

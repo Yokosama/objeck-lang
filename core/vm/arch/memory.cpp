@@ -348,12 +348,6 @@ size_t* MemoryManager::GetMemory(size_t size) {
 }
 
 void MemoryManager::AddFreeMemory(size_t* raw_mem) {
-  /*
-  if(free_memory_cache_size > mem_max_size) {
-    ClearFreeMemory();
-  }
-  */
-  
   const size_t size = raw_mem[0];
   AddFreeCache(raw_mem);
 }
