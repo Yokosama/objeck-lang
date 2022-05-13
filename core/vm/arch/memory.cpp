@@ -370,8 +370,8 @@ void MemoryManager::AddFreeCache(size_t* mem_chunk) {
 #endif
 }
 
-size_t* MemoryManager::GetFreeMemory(size_t ask_size) {
-  const size_t chunk_size = GetAllocSize(ask_size + sizeof(size_t));
+size_t* MemoryManager::GetFreeMemory(size_t alloc_size) {
+  const size_t chunk_size = GetMemoryAlignment(alloc_size + sizeof(size_t));
   
 #ifndef _GC_SERIAL
   MUTEX_LOCK(&free_memory_cache_lock);
@@ -380,12 +380,33 @@ size_t* MemoryManager::GetFreeMemory(size_t ask_size) {
   stack<char*>* mem_pool_list = nullptr;
   unordered_map<size_t, stack<char*>*>::iterator result = free_memory_lists.find(chunk_size);
   if(result == free_memory_lists.end()) {
+    size_t pool_max = MEM_POOL_LIST_MAX * 16;
+
+    /*
+    // 8k
+    if(chunk_size < 8192) {
+      pool_max *= 512;
+    }
+    // 128k
+    else if(chunk_size < 131072) {
+      pool_max *= 128;
+    }
+    // 1M
+    else if(chunk_size < 1048576) {
+      pool_max *= 32;
+    }
+    // 4M
+    else if(chunk_size < 4194304) {
+      pool_max *= 8;
+    }
+    */
+
     // create memory pool
-    char* pool_mem = (char*)calloc(MEM_POOL_LIST_MAX, chunk_size);
+    char* pool_mem = (char*)calloc(pool_max, chunk_size);
     char* head_ptr = pool_mem;
 
     mem_pool_list = new stack<char*>;
-    for(size_t i = 0; i < MEM_POOL_LIST_MAX; ++i) {
+    for(size_t i = 0; i < pool_max; ++i) {
       mem_pool_list->push(head_ptr);
       head_ptr += chunk_size;
     }
@@ -401,6 +422,8 @@ size_t* MemoryManager::GetFreeMemory(size_t ask_size) {
     mem_pool_list = result->second;
   }
 
+  assert(!mem_pool_list->empty());
+
   // get memory chunk
   size_t* raw_mem = (size_t*)mem_pool_list->top();
   mem_pool_list->pop();
@@ -415,23 +438,8 @@ size_t* MemoryManager::GetFreeMemory(size_t ask_size) {
   return raw_mem + 1;
 }
 
-size_t MemoryManager::GetAllocSize(size_t size) {
-  if(size > 0 && size <= 8) {
-    return 8;
-  }
-  else if(size > 8 && size <= 16) {
-    return 16;
-  }
-  else if(size > 16 && size <= 32) {
-    return 32;
-  }
-  else if(size > 32 && size <= 64) {
-    return 64;
-  }
-  else if(size > 64 && size <= 128) {
-    return 128;
-  }
-  else if(size > 128 && size <= 256) {
+size_t MemoryManager::GetMemoryAlignment(size_t size) {
+  if(size > 0 && size <= 256) {
     return 256;
   }
   else if(size > 256 && size <= 512) {
@@ -476,9 +484,22 @@ size_t MemoryManager::GetAllocSize(size_t size) {
   else if(size > 2097152 && size <= 4194304) {
     return 4194304;
   }
-  // > 4MB
-  else {
+  else if(size > 4194304 && size <= 8388608) {
+    return 8388608;
+  }
+  else if(size > 8388608 && size <= 16777216) {
     return 16777216;
+  }
+  else if(size > 16777216 && size <= 33554432) {
+    return 33554432;
+  }
+  // 64 MB
+  else if(size > 33554432 && size <= 67108864) {
+    return 67108864;
+  }
+  else {
+    // 512 MB
+    return 536870912;
   }
 }
 
@@ -886,7 +907,6 @@ void* MemoryManager::CheckStack(void* arg)
     }
   }
 
-  
   delete info;
   info = nullptr;
 

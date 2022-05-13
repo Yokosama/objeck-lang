@@ -52,7 +52,7 @@ Start: GC tuning parameters
 #define SIZE_OR_CLS -2
 #define TYPE -3
 
-#define MEM_POOL_LIST_MAX 2048
+#define MEM_POOL_LIST_MAX 4096
 
 /*
 End: GC tuning parameters
@@ -190,13 +190,14 @@ class MemoryManager {
 
   static size_t* GetMemory(size_t alloc_size);
   static void AddFreeMemory(size_t* raw_mem);
-  static size_t GetAllocSize(size_t size);
+  static size_t GetMemoryAlignment(size_t size);
   void static inline AddFreeCache(size_t* raw_mem);
   static size_t* GetFreeMemory(size_t ask_size);
     
  public:
   static void Initialize(StackProgram* p);
 
+  // release all memory
   static void Clear() {
 #ifdef _MEM_LOGGING
     mem_logger.close();
